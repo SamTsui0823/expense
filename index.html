@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>個人記帳 Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { background-color: #f8f9fe; }
+        .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+    <div class="max-w-md mx-auto space-y-6">
+        <!-- 頂部標題與頭像 -->
+        <div class="flex justify-between items-center mb-6">
+            <button class="p-2 bg-white rounded-lg shadow-sm">
+                <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16m-7 6h7"></path></svg>
+            </button>
+            <h1 class="text-xl font-bold text-gray-800">APRIL 2024</h1>
+            <div class="w-10 h-10 bg-purple-200 rounded-full border-2 border-white shadow-sm overflow-hidden">
+                <img src="https://via.placeholder.com/40" alt="avatar">
+            </div>
+        </div>
+
+        <!-- 總覽卡片 -->
+        <div class="grid grid-cols-2 gap-4">
+            <div class="bg-white p-4 rounded-3xl shadow-sm border border-gray-100">
+                <p class="text-gray-400 text-xs">Income</p>
+                <p class="text-lg font-bold text-gray-800 leading-tight">$ 58,678</p>
+                <span class="text-green-500 text-xs">↑ 12%</span>
+            </div>
+            <div class="bg-white p-4 rounded-3xl shadow-sm border border-gray-100">
+                <p class="text-gray-400 text-xs">Expense</p>
+                <p class="text-lg font-bold text-gray-800 leading-tight">$ 17,678</p>
+                <span class="text-orange-500 text-xs">↓ 8%</span>
+            </div>
+        </div>
+
+        <!-- 圖表卡片 (參考截圖樣式) [1] -->
+        <div class="bg-white p-6 rounded-3xl shadow-xl border border-gray-50 flex flex-col items-center">
+            <h2 class="text-gray-500 text-sm mb-4 self-start font-medium">Top Spend Areas</h2>
+            <div class="relative w-48 h-48">
+                <canvas id="expenseChart"></canvas>
+                <div class="absolute inset-0 flex flex-col items-center justify-center">
+                    <p class="text-gray-400 text-xs">Total Expense</p>
+                    <p id="totalAmount" class="text-xl font-bold text-gray-800">$ 0</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 最近消費列表 -->
+        <div class="space-y-4">
+            <div class="flex justify-between items-center">
+                <h3 class="font-bold text-gray-800 italic">Recent Transactions</h3>
+                <button class="text-purple-600 text-sm font-semibold">View All</button>
+            </div>
+            <div id="transactionList" class="space-y-3">
+                <!-- 資料會由 JS 動態插入 -->
+            </div>
+        </div>
+
+        <!-- 後台管理區塊 (隱藏式) -->
+        <div class="mt-10 border-t pt-6">
+            <button onclick="document.getElementById('adminPanel').classList.toggle('hidden')" class="text-xs text-gray-400 underline mb-2">管理後台 (貼上 JSON)</button>
+            <div id="adminPanel" class="hidden space-y-3">
+                <textarea id="jsonInput" rows="5" class="w-full p-3 border rounded-xl text-sm" placeholder='貼上 Gemini 生成的 JSON 數據...'></textarea>
+                <button id="uploadBtn" class="w-full py-3 gradient-bg text-white rounded-xl font-bold shadow-lg active:scale-95 transition-transform">寫入 Firebase 資料庫</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 載入 Firebase 模組 -->
+    <script type="module" src="app.js"></script>
+</body>
+</html>
