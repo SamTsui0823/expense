@@ -1,97 +1,189 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getFirestore, collection, addDoc, onSnapshot, query, orderBy } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+// app.js
 
-// 1. Firebase 初始化配置 [2][3]
+// 1. 引入 Firebase 模組
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.1.0/firebase-app.js";
+import { 
+    getFirestore, collection, addDoc, query, orderBy, limit, onSnapshot, writeBatch, doc, serverTimestamp 
+} from "https://www.gstatic.com/firebasejs/10.1.0/firebase-firestore.js";
+
+// 2. Firebase 設定 (來自您的來源資料 [1][2])
 const firebaseConfig = {
-    apiKey: "AIzaSyBBpI1K7LA1zvN8qQOLzKpal0Q2Y3IKDGE",
-    authDomain: "checklist-7dfa7.firebaseapp.com",
-    projectId: "checklist-7dfa7",
-    storageBucket: "checklist-7dfa7.firebasestorage.app",
-    messagingSenderId: "961219093530",
-    appId: "1:961219093530:web:a1a78aa5f8028c2497dda3"
+    apiKey: "AIzaSyBgy2_tglOfkF_CFpCl2xaNFu19Jx5iDBs",
+    authDomain: "my-expense-tracker-474d4.firebaseapp.com",
+    projectId: "my-expense-tracker-474d4",
+    storageBucket: "my-expense-tracker-474d4.firebasestorage.app",
+    messagingSenderId: "702959051936",
+    appId: "1:702959051936:web:1d5b78d047fde4eca4d5c5"
 };
 
+// 初始化 App 與 Database
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
-const expenseCol = collection(db, "expenses");
 
-// 2. Chart.js 初始化 (紫色系配色) [1]
-let myChart;
-const ctx = document.getElementById('expenseChart').getContext('2d');
+// 全域變數儲存圖表實例
+let myChart = null;
 
-function updateChart(data) {
-    const categories = data.map(item => item.category);
-    const amounts = data.map(item => item.amount);
-    const total = amounts.reduce((a, b) => a + b, 0);
-    document.getElementById('totalAmount').innerText = `$ ${total.toLocaleString()}`;
+// ==========================================
+// A. 讀取數據與監聽 (Read & Listen)
+// ==========================================
 
-    if (myChart) { myChart.destroy(); }
+// 監聽 transactions 集合，按時間倒序排列
+const q = query(collection(db, "transactions"), orderBy("timestamp", "desc"), limit(50));
+
+onSnapshot(q, (snapshot) => {
+    let transactions = [];
+    let totalAmount = 0;
+    
+    // 用於圖表分類統計
+    let categoryStats = {}; 
+
+    snapshot.docs.forEach(doc => {
+        const data = doc.data();
+        transactions.push({ id: doc.id, ...data });
+
+        // 計算總額 (假設只有支出 expense)
+        totalAmount += Number(data.amount);
+
+        // 統計分類
+        const cat = data.category || "Other";
+        if (categoryStats[cat]) {
+            categoryStats[cat] += Number(data.amount);
+        } else {
+            categoryStats[cat] = Number(data.amount);
+        }
+    });
+
+    // 1. 更新 UI 數字
+    document.getElementById('totalBalance').innerText = $${totalAmount.toLocaleString()};
+    document.getElementById('totalExpense').innerText = $${totalAmount.toLocaleString()};
+
+    // 2. 更新列表
+    renderList(transactions);
+
+    // 3. 更新圖表
+    drawChart(categoryStats);
+});
+
+// ==========================================
+// B. UI 渲染邏輯 (Render UI)
+// ==========================================
+
+function renderList(list) {
+    const container = document.getElementById('transactionList');
+    container.innerHTML = ''; // 清空
+
+    if (list.length === 0) {
+        container.innerHTML = '<p class="text-center text-gray-400">尚無交易紀錄</p>';
+        return;
+    }
+
+    list.forEach(item => {
+        // 根據分類選擇簡單的 icon 背景色 (模仿截圖中的不同色塊)
+        let iconBg = 'bg-gray-100 text-gray-500';
+        let icon = '🛒';
+        
+        // 簡單的分類判斷
+        const cat = item.category.toLowerCase();
+        if (cat.includes('food') || cat.includes('restaurant')) { iconBg = 'bg-orange-100 text-orange-500'; icon = '🍔'; }
+        else if (cat.includes('transport')) { iconBg = 'bg-blue-100 text-blue-500'; icon = '🚕'; }
+        else if (cat.includes('cloth')) { iconBg = 'bg-purple-100 text-purple-500'; icon = '👔'; }
+        else if (cat.includes('medicine')) { iconBg = 'bg-red-100 text-red-500'; icon = '💊'; }
+
+        const html = `
+        <div class="transaction-item flex items-center justify-between p-4 bg-white rounded-2xl shadow-sm border border-gray-100">
+            <div class="flex items-center gap-4">
+                <div class="w-12 h-12 rounded-full ${iconBg} flex items-center justify-center text-xl">
+                    ${icon}
+                </div>
+                <div>
+                    <h4 class="font-bold text-gray-800">${item.item || item.category}</h4>
+                    <p class="text-xs text-gray-400">${item.date}</p>
+                </div>
+            </div>
+            <div class="font-bold text-gray-800">
+                -$${Number(item.amount).toLocaleString()}
+            </div>
+        </div>
+        `;
+        container.innerHTML += html;
+    });
+}
+
+function drawChart(stats) {
+    const ctx = document.getElementById('expenseChart').getContext('2d');
+    const labels = Object.keys(stats);
+    const data = Object.values(stats);
+
+    // 配合截圖的紫色系調色盤
+    const purplePalette = [
+        '#8B5CF6', // Violet 500
+        '#D946EF', // Fuchsia 500
+        '#6366F1', // Indigo 500
+        '#A855F7', // Purple 500
+        '#EC4899', // Pink 500
+        '#C084FC'  // Purple 300
+    ];
+
+    if (myChart) {
+        myChart.destroy(); // 銷毀舊圖表以重繪
+    }
 
     myChart = new Chart(ctx, {
         type: 'doughnut',
         data: {
-            labels: categories,
+            labels: labels,
             datasets: [{
-                data: amounts,
-                backgroundColor: ['#7c3aed', '#a78bfa', '#c4b5fd', '#ddd6fe', '#8b5cf6'], // 不同層次的紫色
+                data: data,
+                backgroundColor: purplePalette,
                 borderWidth: 0,
                 hoverOffset: 4
             }]
         },
         options: {
-            cutout: '80%',
-            plugins: { legend: { display: false } }
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '70%', // 甜甜圈中間的空心大小，符合截圖風格
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: { usePointStyle: true, font: { family: 'Poppins' } }
+                }
+            }
         }
     });
 }
 
-// 3. 監聽 Firestore 即時更新 (onSnapshot)
-onSnapshot(query(expenseCol, orderBy("timestamp", "desc")), (snapshot) => {
-    const transactions = [];
-    snapshot.forEach(doc => transactions.push(doc.data()));
+// ==========================================
+// C. 資料寫入邏輯 (Admin Upload)
+// ==========================================
 
-    // 更新圖表
-    updateChart(transactions);
+// 將函式掛載到 window 以便 HTML onclick 呼叫
+window.uploadData = async function() {
+    const jsonStr = document.getElementById('jsonInput').value;
+    if (!jsonStr) return alert("請輸入 JSON 數據");
 
-    // 更新列表 UI
-    const listEl = document.getElementById('transactionList');
-    listEl.innerHTML = transactions.map(t => `
-        <div class="flex items-center justify-between bg-white p-4 rounded-2xl shadow-sm border border-gray-50">
-            <div class="flex items-center space-x-3">
-                <div class="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center text-purple-600 font-bold">
-                    ${t.category.charAt(0)}
-                </div>
-                <div>
-                    <p class="text-sm font-bold text-gray-800">${t.category}</p>
-                    <p class="text-xs text-gray-400">${t.note || 'General'}</p>
-                </div>
-            </div>
-            <p class="font-bold text-gray-800">$ ${t.amount}</p>
-        </div>
-    `).join('');
-});
-
-// 4. 處理「貼上 JSON -> 寫入資料庫」
-document.getElementById('uploadBtn').addEventListener('click', async () => {
-    const jsonText = document.getElementById('jsonInput').value;
     try {
-        const data = JSON.parse(jsonText);
-        // 假設 Gemini 生成的是物件或陣列，我們統一處理
-        const items = Array.isArray(data) ? data : [data];
+        const data = JSON.parse(jsonStr);
+        if (!Array.isArray(data)) throw new Error("數據必須是 Array 格式");
 
-        for (const item of items) {
-            await addDoc(expenseCol, {
+        const batch = writeBatch(db); // 使用 Batch 一次寫入多筆
+        
+        data.forEach(item => {
+            const docRef = doc(collection(db, "transactions"));
+            batch.set(docRef, {
                 ...item,
-                timestamp: new Date()
+                timestamp: serverTimestamp() // 加入伺服器時間戳記以便排序
             });
-        }
-        alert('數據同步成功！');
-        document.getElementById('jsonInput').value = '';
+        });
+
+        await batch.commit();
+        
+        alert(成功寫入 ${data.length} 筆資料！);
+        document.getElementById('jsonInput').value = ''; // 清空輸入框
+        document.getElementById('adminPanel').classList.add('hidden'); // 關閉視窗
+
     } catch (e) {
-        console.log('Raw input text:', jsonText);
-        console.log('Input length:', jsonText.length);
-        console.log('First 50 chars:', JSON.stringify(jsonText.substring(0, 50)));
-        console.error('Parse error:', e.message);
-        alert('JSON 格式錯誤：' + e.message + '\n\n請打開 DevTools Console (F12) 查看詳細資訊');
+        console.error(e);
+        alert("格式錯誤或寫入失敗：" + e.message);
     }
-});
+};
