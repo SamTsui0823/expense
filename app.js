@@ -49,7 +49,7 @@ function updateChart(data) {
 onSnapshot(query(expenseCol, orderBy("timestamp", "desc")), (snapshot) => {
     const transactions = [];
     snapshot.forEach(doc => transactions.push(doc.data()));
-    
+
     // 更新圖表
     updateChart(transactions);
 
@@ -88,7 +88,10 @@ document.getElementById('uploadBtn').addEventListener('click', async () => {
         alert('數據同步成功！');
         document.getElementById('jsonInput').value = '';
     } catch (e) {
-        alert('JSON 格式錯誤，請重新檢查！');
-        console.error(e);
+        console.log('Raw input text:', jsonText);
+        console.log('Input length:', jsonText.length);
+        console.log('First 50 chars:', JSON.stringify(jsonText.substring(0, 50)));
+        console.error('Parse error:', e.message);
+        alert('JSON 格式錯誤：' + e.message + '\n\n請打開 DevTools Console (F12) 查看詳細資訊');
     }
 });
